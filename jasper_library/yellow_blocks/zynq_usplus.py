@@ -13,6 +13,11 @@ class zynq_usplus(YellowBlock):
     'data_width': {'param': 'PSU__MAXIGP{:d}__DATA_WIDTH', 'fmt': "{{:d}}"}
   }
 
+  saxi_attr_map = {
+    'enable':     {'param': 'PSU__USE__S_AXI_GP{:d}',      'fmt': "{{:d}}"},
+    'data_width': {'param': 'PSU__SAXIGP{:d}__DATA_WIDTH', 'fmt': "{{:d}}"}
+  }
+
   ps_irq_attr_map = {
     'enable_ps_irq0' : {'param': 'PSU__USE__IRQ0', 'fmt': "{{:d}}"},
     'enable_ps_irq1' : {'param': 'PSU__USE__IRQ1', 'fmt': "{{:d}}"}
@@ -41,6 +46,19 @@ class zynq_usplus(YellowBlock):
       else:
         self.clk_net_name = 'maxihpm0_lpd_aclk'
         self.port_net_name = 'M_AXI_HPM0_LPD'
+
+  class zynq_saxi_interface(axi_interface):
+    def __init__(self, interface_idx):
+      self.idx = interface_idx
+      self.dest = None
+      #self.clk_src = 'pl_sys_clk'
+
+      if interface_idx <= 1:
+        self.clk_net_name = 'saxihpc{:d}_fpd_aclk'.format(interface_idx)
+        self.port_net_name = 'M_AXI_HPC{:d}_FPD'.format(interface_idx)
+      else:
+        self.clk_net_name = 'saxihp{:d}_fpd_aclk'.format(interface_idx-2)
+        self.port_net_name = 'S_AXI_HP{:s}_LPD'.format(interface_idx-2)
 
 
   @staticmethod
@@ -78,6 +96,18 @@ class zynq_ultra_ps_e(zynq_usplus):
     for m in self.maxi:
       if m.enable:
         self.provides.append('{:s}/{:s}'.format(self.name, m.port_net_name))
+
+
+    self.num_saxi = 6
+    self.saxi = []
+    for sidx in range(0, self.num_saxi):
+      s = self.zynq_saxi_interface(sidx)
+
+      sconf = self.blk['saxi_{:d}'.format(sidx)]['conf']
+      for attr, _ in iteritems(self.saxi_attr_map):
+        if attr in sconf:
+          setattr(s, attr, sconf[attr])
+  
 
     self.provides.append('pl_sys_clk')
     self.provides.append('axil_rst')

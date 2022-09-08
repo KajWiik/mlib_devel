@@ -34,6 +34,10 @@ class zcu216(YellowBlock):
 
         self.requires.append('M_AXI') # axi4lite interface from block design
 
+    def modify_bd (self, bd):
+        bd.add_port('user_clk', 'in', port_type='clk', clk_freq_hz=self.pl_clk_mhz*1e6)
+
+
     def modify_top(self, top):
         top.assign_signal('axil_clk', 'pl_sys_clk')
         #top.assign_signal('axil_rst', 'axil_rst')
@@ -72,8 +76,11 @@ class zcu216(YellowBlock):
             'presets' : 'zcu216_mpsoc',
             'maxi_0'  : {'conf': {'enable': 1, 'data_width': 32},  'intf': {'dest': 'axi_proto_conv/S_AXI'}},
             'maxi_1'  : {'conf': {'enable': 1, 'data_width': 128}, 'intf': {'dest': 'axi_interconnect/S00_AXI'}},
-            'maxi_2'  : {'conf': {'enable': 0, 'data_width': 128}, 'intf': {}}
+            'maxi_2'  : {'conf': {'enable': 0, 'data_width': 128}, 'intf': {}},
             #'maxi_2'  : {'conf': {'enable': 1, 'data_width': 128}, 'intf': {'dest': 'M_AXI_0'}}
+            'saxi_0'  : {'conf': {'enable': 0, 'data_width': 128},  'intf': {}}
+            'saxi_1'  : {'conf': {'enable': 0, 'data_width': 128},  'intf': {}}
+            'saxi_2'  : {'conf': {'enable': 1, 'data_width': 128},  'intf': {}}
         }
         children.append(YellowBlock.make_block(zynq_blk, self.platform))
 
@@ -96,12 +103,49 @@ class zcu216(YellowBlock):
         }
         children.append(YellowBlock.make_block(proto_conv_blk, self.platform))
 
+
+        dma_blk = {
+          'tag'      : 'xps:axi_dma',
+          'name'     : 'dma',
+          'saxi_intf': {'dest': 'axi_icx/M01_AXI'},
+          'maxi_intf': [{'name': 'M_AXI_S2MM', 'dest': 'mpsoc/S_AXI_HPM0'}, {'name': 'M_AXI_MM2S', 'dest': 'mpsoc/S_AXI_HPM0'}],
+          # streaming interfaces
+          'saxis_intf': {'dest': 'S_AXIS_DMA'},
+          'maxis_intf': {},
+          'addr_width':               32,
+          'dlytmr_resolution':        125,
+          'enable_multi_channel':     0,
+          'enable_read':              0,
+          'en_rd_unaligned_transfer': 0,
+          'enable_read_sf':           1,
+          'enable_write':             1,
+          'en_wr_unaligned_transfer': 0,
+          'enable_write_sf':          1,
+          'include_sg':               0,
+          'increased_throughput':     0,
+          'm_axi_mm2s_data_width':    32,
+          'm_axi_s2mm_data_width':    32,
+          'mm2s_tdata_width':         32,
+          'enable_micro_dma':         0,
+          'mm2s_burst_size':          16,
+          'num_mm2s_channels':        1,
+          'num_s2mm_channels':        1,
+          'prmry_is_aclk_async':      0,
+          's2mm_burst_size':          16,
+          's_axis_s2mm_tdata_width':  32,
+          'sg_include_stscntrl_strm': 0,
+          'sg_length_width':          14,
+          'sg_use_stsapp_length':     0,
+          'single_interface':         0
+        }
+        children.append(YellowBlock.make_block(dma_blk, self.platform))
+
         axi_icx_blk = {
           'tag'      : 'xps:axi_interconnect',
           'name'     : 'axi_icx',
           'saxi_intf': [{'dest': 'mpsoc/M_AXI_HPM1_FPD'}],
-          'maxi_intf': [{'dest': 'gpio/S_AXI'}],
-          'num_mi'   : 1,
+          'maxi_intf': [{'dest': 'gpio/S_AXI'}, {'dest': 'dma/S_AXI_LITE'}],
+          'num_mi'   : 2,
           'num_si'   : 1
         }
         children.append(YellowBlock.make_block(axi_icx_blk, self.platform))

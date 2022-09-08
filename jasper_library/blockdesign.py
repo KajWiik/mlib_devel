@@ -10,6 +10,7 @@ class BlockDesign(object):
 
   interface_type_map = {
     'axi4': 'aximm_rtl:1.0',
+    'axis': 'axis_rtl:1.0'
   }
 
   class axi4_interface(object):
